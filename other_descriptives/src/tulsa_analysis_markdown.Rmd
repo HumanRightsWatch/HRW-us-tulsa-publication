@@ -1,0 +1,500 @@
+---
+title: "Data Excerpts from the Human Rights Watch report “Get on the Ground!”: Policing, Poverty and Racial Inequality in Tulsa, Oklahoma"
+author: "Brian Root"
+date: "9/12/2019"
+output: html_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(pacman)
+p_load(tidyverse, lubridate, readr, scales, stringr, here, assertr,
+       sf, leaflet, htmlwidgets, ggplot2, zoo, Hmisc, extrafont, knitr)
+options(scipen=999)
+
+here <- here::here
+font_import() # import all your fonts
+fonts() #get a list of fonts
+fonttable()
+fonttable()[90:94,]
+loadfonts()
+
+source(here("other_descriptives/src/functions_shared.R"))
+
+#force data
+force_literal_values <- read_rds(here("other_descriptives/output/force_values.rds"))
+table_force_rates <- read_rds(here("other_descriptives/output/table_force_rates.rds"))
+trends_joined <- 
+   read_rds(here("other_descriptives/output/trends_for_force_plot.rds"))
+zip <- read_rds(here("other_descriptives/output/zip_force.rds"))
+
+
+#citation data
+citations_literal_values <- read_rds(here("other_descriptives/output/citations_literal_values.rds"))
+citations_table_proportion <- read_rds(here("other_descriptives/output/citations_table_proportion.rds"))
+table_multiple_locations <- read_rds(here("other_descriptives/output/table_multiple_locations.rds"))
+
+#stops data
+stops_literal_values <- read_rds(here("other_descriptives/output/traffic_stops_values.rds"))   
+selected_tracts_stops <- read_rds(here("other_descriptives/output/selected_tracts_stops.rds"))
+quartiles_stops <- read_rds(here("other_descriptives/output/quartiles.rds"))
+stops_data_for_maps <- read_rds(here("other_descriptives/output/stops_maps_data.rds"))
+stops_tract <- read_rds(here("other_descriptives/output/stops_tract.rds"))
+
+#jail data
+jail_literal_values <- read_rds(here("other_descriptives/output/jail_literal_values.rds"))
+
+#arrests data
+arrests_literal_values <- 
+   read_rds(here("other_descriptives/output/arrests_values.rds"))
+warrant_only <- 
+   read_rds(here("other_descriptives/output/warrant_only_map_data.rds"))
+race_rates <- 
+   read_csv(here("other_descriptives/output/race_rates_citywide.csv"))
+tract_race <- read_rds(here("other_descriptives/output/tract_race.rds"))
+data_race_specific_correlation_plot <- read_rds(here("other_descriptives/output/data_race_specific_correlation_plot.rds"))
+
+```
+
+# Introduction
+This markdown document quotes text from the Human Rights Watch report "“Get on the Ground!”: Policing, Poverty and Racial Inequality in Tulsa, Oklahoma". The purpose of this document is to provide the source code to nearly every statistic that is included in the report. When viewing the tulsa_analysis_markdown.Rmd file, along with the original R scripts, the reader can determine how each statistic was computed. 
+
+
+# Chapter: Summary
+
+### Page 6
+"Our analysis of 2012-2017 data provided by the Tulsa Police Department, shows that black people in Tulsa are `r force_literal_values$ratio_per_capita` times more likely to be subjected to physical force by police officers than white people on a per capita basis. Though only 17 percent of the population, black Tulsans were at the receiving end of `r force_literal_values$percent_of_force_black` percent of police uses of force; white Tulsans, 65 percent of the population, only `r force_literal_values$percent_of_force_white` percent."
+
+### Page 7
+"According to data provided by the department, of the `r force_literal_values$total_num_force_incidents` incidents and `r comma_format()(force_literal_values$total_num_force_actions)` distinct force actions reported by police from 2012 through 2017, the Tulsa Police Department found only two forceful acts that were not “within policy.”"
+
+"Black people in Tulsa are also `r round(arrests_literal_values$black_to_white_ratio_citywide, 2)` times more likely than white people to be arrested on a citywide per capita basis. They are 17 percent of the population but make up `r round(arrests_literal_values$black_arrest_percent, 2) * 100` percent of all people arrested."
+
+"Though national studies show that drug use and sales are roughly the same across racial lines, Tulsa Police arrest black people `r arrests_literal_values$black_to_white_drugs_total` times more frequently than white people for drug crimes, and at substantially greater rates for marijuana."
+
+"Police arrest black people for warrants at a rate `r arrests_literal_values$warrant_black_white_ratio` times greater than white people, reflecting higher poverty rates among black people, but also suggesting possible bias in police investigative tactics."
+
+### Page 8
+"One neighborhood in North Tulsa, defined as a census tract 62, `r stops_literal_values$tract62_perc_black` percent black with a low median income, experienced an annual average of `r stops_literal_values$tract62_rate` stops per 1,000 people from 2014 through 2017; in contrast, census tract 30 in West Tulsa, `r stops_literal_values$tract30_perc_white` percent white but also with a low median income, had a significantly lower stop rate of `r stops_literal_values$tract30_rate` per 1,000 people. And some well-to-do census tracts in South Tulsa, almost entirely white, had virtually no such stops by police: one experienced only `r stops_literal_values$tract7637_rate` stops per 1,000 people over the same period, and another only `r stops_literal_values$tract7638_rate` stops."
+
+### Page 9
+"Black people are cited for violations at `r citations_literal_values$citywide_ratio_per_capita` times the rate of white people on a per capita basis."
+
+### Page 10
+"From 2012 through 2017, in `r arrests_literal_values$warrant_total_perc_of_arrests` percent of arrests, the most serious charge for which the person was arrested was a warrant: `r arrests_literal_values$county_warrant_perc_of_arrests` percent from the county courts and `r arrests_literal_values$municipal_warrant_perc_of_arrests` percent for municipal violations."
+
+# Chapter III. Deadly Force by Police
+
+### Page 59
+"Police made arrests in `r force_literal_values$deadly_force_num_arrested` of the incidents, according to the database."
+
+### Page 60
+"Police were responding to “disturbance/weapon” calls in `r force_literal_values$deadly_disturbance`  instances; were making traffic stops in `r force_literal_values$deadly_traffic`; investigating armed robberies in `r force_literal_values$deadly_robbery`; serving warrants in `r force_literal_values$deadly_warrants`; investigating auto thefts in `r force_literal_values$deadly_autotheft`; and stopping pedestrians in `r force_literal_values$deadly_pedstop`."
+
+"In `r force_literal_values$black_perc_of_deadly` percent of the `r force_literal_values$num_deadly_force` incidents, the person exposed to the use of deadly force was black, a high number compared to the 17 percent of Tulsa’s overall population that is black."
+
+# Chapter IV. Policing and Court Debt
+
+### Page 65
+"From 2012 through 2017, Tulsa Police made `r arrests_literal_values$garnett_total_arrests` arrests at this motel alone, according to Tulsa Police Department data.   In this six-year stretch, there were almost no arrests for violent incidents. Over two-thirds of the arrests at the motel (`r arrests_literal_values$garnett_perc_warrants` percent) included a warrant, split roughly evenly between city and county warrants. Of those arrests for warrants, over `r arrests_literal_values$garnett_perc_only_warrants` percent were only for warrants and not for any other violation."
+
+### Page 77
+"Human Rights Watch analyzed Tulsa Police Department data from 2012 through 2017 and found that in almost four of every 10 arrests, the most serious arrest charge was a warrant, making warrants by far the most common reason for arrest. `r arrests_literal_values$county_warrant_perc_of_arrests` percent of them were county-issued warrants and `r arrests_literal_values$municipal_warrant_perc_of_arrests` percent municipal warrants. It was not possible to determine how many of these were for “failure to pay” costs, court fees, or fines. However, many county and city warrants relate to “failure to pay,” as evidenced by booking data cited previously. City warrants are for low-level misdemeanor charges or for citations, including basic traffic violations, and for “failure to pay” fees, fines and costs on those types of charges. In 33,721 of these arrests, the majority, a warrant was the only charge. There is no data to determine how many people arrested on these warrants were poor, but especially considering the prevalence of “failure to pay” warrants, it is likely that a large percentage were. Police arrest black people in Tulsa for warrants at a rate `r arrests_literal_values$warrant_black_white_ratio` times the rate that they arrest white people."
+
+```{r echo = FALSE,  warning=FALSE}
+pal <- colorNumeric(palette = "viridis", 
+                    domain = warrant_only$warrant_only_rate)
+
+map_total <- warrant_only %>%
+   st_transform(crs = "+init=epsg:4326") %>%
+   leaflet(width = "100%", height = 800) %>%
+   addProviderTiles(provider = "CartoDB.Positron") %>%
+   addLegend("bottomright", 
+             pal = pal, 
+             values = ~ warrant_only_rate,
+             title = "Warrant-Only Arrest Rate, \n2012 - 2017",
+             opacity = 1) %>%
+   addPolygons(popup = ~ paste(round(warrant_only_rate, 1),
+                               " warrant-only arrests per 1,000 residents", sep = ""),
+               stroke = FALSE,
+               smoothFactor = 0,
+               fillOpacity = 0.7,
+               color = ~ pal(warrant_only_rate)) 
+map_total
+
+```
+
+# Chapter V. Arrests, Detentions, and Citations
+
+### Page 85
+"From 2012-2017, for every 1,000 white people in Tulsa, police arrested `r round(arrests_literal_values$white_citywide_arrest_rate, 0)` per year on average; for every 1,000 black people, Tulsa Police arrested nearly `r round(arrests_literal_values$black_citywide_arrest_rate, 0)`, a rate `r round(arrests_literal_values$black_to_white_ratio_citywide, 2)` times greater. Making up roughly 17 percent of the city’s population, black people accounted for `r round(arrests_literal_values$black_arrest_percent, 2) * 100` percent of all arrests.  White people make up about 70 percent of the population, but only `r round(arrests_literal_values$white_arrest_percent, 2) * 100` percent of arrests."
+
+```{r echo = FALSE,  warning=FALSE}
+table <- race_rates %>%
+   filter(offense_type == "Total arrests") %>%
+   mutate(percent_arrests = paste(round(percent_arrests, 3) *100, "%", sep = ""),
+          Tulsa_City_Percent = paste(round(Tulsa_City_Percent, 3) * 100,
+                                     "%", sep = "")) %>%
+   mutate(Tulsa_City_Percent = ifelse(race == "Unknown", NA, Tulsa_City_Percent)) %>%
+   select(Race = race, `Number of arrests` = num_arrests,
+          `Percent of arrests` = percent_arrests,
+          `Percent of Tulsa population` = Tulsa_City_Percent,
+          `Avg. annual arrest rate per 1,000 people` = arrest_rate)
+
+kable(table, caption = "Tulsa Police Department Arrests 2012 – 2017")
+
+bins <-c(0, 100, 500, 1000, 1500, 2000, 2500, 5300)
+pal <- colorBin(palette = "viridis", pretty = T, bins = bins,
+                    domain = tract_race$total_arrests)
+
+map_total <- tract_race %>%
+   st_transform(crs = "+init=epsg:4326") %>%
+   leaflet(width = "100%", height = 800) %>%
+   addProviderTiles(provider = "CartoDB.Positron") %>%
+   addLegend("bottomright", 
+             pal = pal, 
+             values = ~ total_arrests,
+             title = "Number of arrests in census tract.\n2012 - 2017",
+             opacity = 1) %>%
+   addPolygons(popup = ~ paste(comma_format()(total_arrests),
+                               " total arrests", sep = ""),
+               stroke = FALSE,
+               smoothFactor = 0,
+               fillOpacity = 0.7,
+               color = ~ pal(total_arrests)) 
+map_total
+
+#total rate of arrest map
+pal <- colorNumeric(palette = "viridis", 
+                    domain = tract_race$total_arrest_rate)
+
+
+bins <-c(0, 10, 25,50,75, 100, 200, 300)
+ pal <- colorBin(palette = "viridis", pretty = T, bins = bins,
+                 domain = tract_race$total_arrest_rate)
+
+map_rate <- tract_race %>%
+   st_transform(crs = "+init=epsg:4326") %>%
+   leaflet(width = "100%", height = 800) %>%
+   addProviderTiles(provider = "CartoDB.Positron") %>%
+   addLegend("bottomright", 
+             pal = pal, 
+             values = ~ total_arrest_rate,
+             title = "Arrest rate per 1,000 people\n2012 - 2017",
+             opacity = 1) %>%
+   addPolygons(popup = ~ paste(comma_format()(total_arrest_rate),
+                               " arrests per 1,000 people", sep = ""),
+               stroke = FALSE,
+               smoothFactor = 0,
+               fillOpacity = 0.7,
+               color = ~ pal(total_arrest_rate)) 
+map_rate
+```
+
+### Page 90
+```{r echo = FALSE,  warning=FALSE}
+tract_race2 <- tract_race %>%
+   filter(GEOID != "40143002500" & 
+             GEOID != "40143008300")
+
+#percent below poverty
+plot <- ggplot(tract_race2, 
+               aes(x = poverty_rate, y = total_arrest_rate)) +
+   geom_point() + 
+   geom_smooth(method = 'lm') +
+   theme_agile() +
+   theme(legend.position = "bottom") +
+   scale_x_continuous(labels = percent) +
+   labs(x = "Percentage of population living below poverty line",
+        y = "Arrests per 1,000 people",
+        title = "Census Tracts by Arrest Rate and Poverty Rate",
+        subtitle = paste("Moderate correlation (r = ", 
+      arrests_literal_values$cor_arrest_rate_poverty,
+                         ")", sep = ""),
+        caption = "Source: Human Rights Watch analysis of Tulsa Police Department data.")
+plot
+
+#percent non-white
+plot <- ggplot(tract_race2, 
+               aes(x = non_white, y = total_arrest_rate)) +
+   geom_point() + 
+   geom_smooth(method = 'lm') +
+   theme_agile() +
+   theme(legend.position = "bottom") +
+   scale_x_continuous(labels = percent) +
+   labs(x = "Percentage of population that is non-white",
+        y = "Arrests per 1,000 people",
+        title = "Census Tracts by Arrest Rate and Percentage of Tract that is Non-white",
+        subtitle = paste("Moderate correlation (r = ", 
+     arrests_literal_values$cor_arrest_rate_non_white_pop,
+                         ")", sep = ""),
+        caption = "Source: Human Rights Watch analysis of Tulsa Police Department data.")
+plot
+
+```
+
+### Page 91
+
+"The interplay between poverty, race, crime and policing are complex. To better understand its effects in Tulsa, Human Rights Watch analyzed the relationship between race-specific arrest rates and race-specific median household income using simple regression models. This analysis revealed that income has a much stronger relationship with arrest rates within the white population than it does for the black population. Arrest rates for black people have little relationship to the median income of black households within each census tract, while areas with higher household income for white people experience lower arrest rates for white people.
+
+Median income is a statistically significant predictor of arrest rates for white people, but not for black people. The median income for white households can account for `r round((100 * arrests_literal_values$white_model_rsquared), 1)` percent of the variation in white arrest rates while black median income only explains `r round((100 * arrests_literal_values$black_model_rsquared), 1)` percent of the variation in black arrest rates. Income is predicted to reduce the arrest rate `r round((arrests_literal_values$white_model_coeff/arrests_literal_values$black_model_coeff), 2)` times faster for the white population than the black population. For every increase in \$10,000 in white median income, the white arrest rate is reduced by `r round(arrests_literal_values$white_model_coeff, 1) * -1` per 1,000 people. For the black population, a \$10,000 difference in tract median income only predicts an arrest rate reduction of `r round(arrests_literal_values$black_model_coeff, 1) * -1` per 1,000.
+
+```{r echo = F}
+tract_race3 <- tract_race2 %>%
+    filter(perc_black > .01 & perc_white > .01 )
+b_model <- lm(tract_race3$black_arrest_rate ~ tract_race3$median_black_income)
+w_model <- lm(tract_race3$white_arrest_rate ~ tract_race3$median_white_income)
+summary(b_model) 
+summary(w_model)
+```
+
+### Page 92
+
+```{r echo = FALSE,  warning=FALSE}
+
+plot <- ggplot(data_race_specific_correlation_plot, 
+               aes(x = median_income,
+                   y = arrest_rate)) +
+   geom_point() + 
+   facet_grid( ~ cat) +
+   geom_smooth(method = 'lm') +
+   theme_agile() +
+   theme(legend.position = "bottom") +
+   scale_x_continuous(labels = dollar) +
+   scale_y_continuous(labels = comma) +
+   expand_limits(x = 0) +
+   theme(panel.spacing = unit(2, "lines")) +
+   theme(plot.margin = unit(c(.5,1,0,.5), "cm")) +
+   labs(x = "Median income",
+        y = "Arrest rate",
+        title = "Census Tracts by Race-specific Arrest Rate and Median Income",
+        subtitle = paste("Black - no correlation (r = ", 
+                         round(arrests_literal_values$cor_arrests_income_black, 3),"),", 
+                         " White - moderate correlation (r = ",
+                         round(arrests_literal_values$cor_arrests_income_white, 3), ")", sep = ""),
+        caption = "Source: Human Rights Watch analysis of Tulsa Police Department data.")
+plot
+
+```
+
+### Page 94
+"While black people are `r arrests_literal_values$black_to_white_ratio_citywide` times more likely to be arrested than white people in Tulsa, in general, black people are `r arrests_literal_values$warrant_black_white_ratio` times more likely to be arrested for warrant charges."
+
+"Weapons offenses, also discovered primarily by police stops and searches as opposed to by police responding to calls, have high racial disparities, with black people arrested `r arrests_literal_values$weapons_black_white_ratio` times more frequently than white people."
+
+"Tulsa Police arrested black people for drug offenses at a rate `r arrests_literal_values$black_to_white_drugs_total` times greater than white people; marijuana possession, at a rate `r arrests_literal_values$black_to_white_mj_possession` times greater, though data indicates that rates of illegal drug use and sales are roughly even across racial groups and possibly higher for white people than black people nationwide."
+
+### Page 103
+"Human Rights Watch requested detailed data on traffic and pedestrian stops by Tulsa Police, including the date, time, duration, reason for the stop, disposition of the stop, demographic description of the person stopped, and other information. Tulsa authorities responded with limited data about `r stops_literal_values$total_traffic_stops` traffic stops and `r stops_literal_values$total_ped_stops` pedestrian stops that occurred from 2014 through 2017."
+
+### Page 104
+"However, using the information available, Human Rights Watch was able to geocode `r stops_literal_values$percent_stops_geocoded` percent of them."
+
+### Page 105
+
+```{r echo = FALSE,  warning=FALSE}
+pal <- colorNumeric(palette = "viridis", domain = stops_data_for_maps$per_capita_rate_per_1K)
+
+map_stops <- stops_data_for_maps %>%
+   st_transform(crs = "+init=epsg:4326") %>%
+   leaflet(width = "100%", height = 800) %>%
+   addProviderTiles(provider = "CartoDB.Positron") %>%
+   addLegend("bottomright", 
+             pal = pal, 
+             values = ~ per_capita_rate_per_1K,
+             title = "Rate of traffic stops per 1,000 people living in census tract.\n2014 - 2017",
+             opacity = 1) %>%
+   addPolygons(popup = ~ paste(comma_format()(per_capita_rate_per_1K), "stops per 1K residents", sep = ""),
+               stroke = FALSE,
+               smoothFactor = 0,
+               fillOpacity = 0.7,
+               color = ~ pal(per_capita_rate_per_1K)) 
+map_stops
+```
+
+
+### Page 106
+
+```{r echo = FALSE,  warning=FALSE}
+kable(selected_tracts_stops, caption = "Traffic Stop Rates - Highest and Lowest Tracts")
+```
+
+### Page 108
+
+```{r echo = FALSE,  warning=FALSE}
+kable(quartiles_stops, caption = "Racial and Class Demographics of Areas Experiencing the Most and Least Traffic Stops")
+```
+
+### Page 109
+
+```{r echo = FALSE,  warning=FALSE}
+
+#scatter plot 
+plot <- ggplot(stops_tract, aes(x = poverty_rate, y = per_capita_rate_per_1K)) +
+   geom_point() + 
+   geom_smooth(method = 'lm') +
+   theme_agile() +
+   theme(legend.position = "bottom") +
+   scale_x_continuous(labels = percent) +
+   labs(x = "Percentage of population living below poverty line",
+        y = "Traffic stops per 1,000 people",
+        title = "Census Tracts by Traffic Stop Rate and Poverty Rate",
+        subtitle = paste("Moderate correlation (r = ", round(stops_literal_values$cor_stoprate_perc_below_pov, 3), ")"),
+        caption = "Source: Human Rights Watch analysis of Tulsa Police Department data.")
+plot
+
+plot <- ggplot(stops_tract, aes(x = non_white, y = per_capita_rate_per_1K)) +
+   geom_point() + 
+   geom_smooth(method = 'lm') +
+   theme_agile() +
+   theme(legend.position = "bottom") +
+   scale_x_continuous(labels = percent) +
+   labs(x = "Percentage of population that is non-white",
+        y = "Traffic stops per 1,000 people",
+        title = "Census Tracts by Traffic Stop Rate and Non-White Population",
+        subtitle = paste("Moderate correlation (r = ", round(stops_literal_values$cor_stoprate_nonwhite, 3), ")"),
+        caption = "Source: Human Rights Watch analysis of Tulsa Police Department data.")
+plot
+
+```
+
+### Page 114
+"Human Rights Watch found a strong correlation (r = `r stops_literal_values$cor_lengthstop_poverty`) between the average length of a traffic stop in a given census tract and the percentage of its residents below the poverty line.   Length of traffic stops also correlated (r = `r stops_literal_values$cor_lengthstop_nonwhite`) with the percentage of the population that is non-white."
+
+"The longest stops were most concentrated in North Tulsa. For example, Tract 5, just east of Peoria, between Pine and Apache (`r stops_literal_values$tract5_nonwhite * 100` percent non-white; `r stops_literal_values$tract5_poverty * 100` percent living below the poverty line), and Tract 79, west of Peoria and North of 46th Street, (`r stops_literal_values$tract79_nonwhite * 100` percent non-white; `r stops_literal_values$tract79_poverty * 100` percent living below the poverty line) had average stop times of `r stops_literal_values$tract5_length` and `r stops_literal_values$tract79_length` minutes, respectively. Tract 76.19, in South Tulsa, west of South Memorial Drive between E. 81st Street and E. 71st Street, which is `r stops_literal_values$tract7619_nonwhite * 100` percent non-white and has `r stops_literal_values$tract7619_poverty * 100` percent living below the poverty line, had an average stop time of only `r stops_literal_values$tract7619_length` minutes."
+
+### Page 115
+```{r echo = FALSE,  warning=FALSE}
+pal <- colorNumeric(palette = "viridis", 
+                    domain = stops_data_for_maps$avg)
+
+map_rate <- stops_data_for_maps %>%
+   st_transform(crs = "+init=epsg:4326") %>%
+   leaflet(width = "100%", height = 800) %>%
+   addProviderTiles(provider = "CartoDB.Positron") %>%
+   addLegend("bottomright", 
+             pal = pal, 
+             values = ~ avg,
+             title = "Mean length of traffic stop census tract.\n2014 - 2017",
+             opacity = 1) %>%
+   addPolygons(popup = ~ paste(comma_format()(avg), " minutes", sep = ""),
+               stroke = FALSE,
+               smoothFactor = 0,
+               fillOpacity = 0.7,
+               color = ~ pal(avg)) 
+map_rate
+
+```
+
+### Page 118
+"The Tulsa Police Department provided Human Rights Watch with time, date, and place information, as well as demographic data and type of violations, on `r citations_literal_values$total_citations` citations issued in over `r citations_literal_values$total_citation_events` police encounters in 2016 and 2017. Overall, this reflects an average annual rate of over `r citations_literal_values$citywide_total_citation_rate_per_1K` citations per 1,000 residents."
+
+"There is a racial disparity in ticketing patterns, though not as severe as the disparity in arrests and uses of force. Black people are about 17 percent of Tulsa’s population, but they receive `r citations_literal_values$citywide_black_perc_of_citations` percent of the citations, and are cited at an average annual rate of `r citations_literal_values$citywide_black_citation_rate` per 1,000, a rate `r citations_literal_values$citywide_ratio_per_capita` times higher than the rate for white people."
+
+### Page 119
+"Human Rights Watch found that `r citations_literal_values$perc_total_DL` percent of all citations issued during this two year period were for a driver’s license and liability insurance violations, including driving on a suspended license. Speeding tickets were `r citations_literal_values$perc_total_speeding` percent of the total. Other moving violations accounted for `r citations_literal_values$perc_total_moving` percent of the citations; license plate violations, `r citations_literal_values$perc_total_licenseplate` percent; and seatbelt violations, `r citations_literal_values$perc_total_seatbelts` percent."
+
+### Page 120
+"The rates of violations related to observable driving behavior, like speeding, are roughly even between black and white Tulsans. However, there are significant disparities for license/insurance  violations, which are likely to be more prevalent in poorer and more heavily policed areas because they often stem from previous arrests and inability to pay premiums.   Black people received these types of citations at a rate `r citations_literal_values$citywide_license_ratio` times higher than white people."
+
+```{r echo = FALSE,  warning=FALSE}
+kable(citations_table_proportion, caption = "Proportion of Population and Citations by Race (2016-17")
+```
+
+### Page 121
+
+```{r echo = FALSE,  warning=FALSE}
+kable(table_multiple_locations, caption = "Proportion of Citation Types (2016-17")
+```
+
+
+# Chapter VI. Police Violence
+
+### Page 127
+"This dataset included `r force_literal_values$total_num_force_incidents` incidents involving less lethal force between 2012 and 2017, which included `r force_literal_values$total_num_force_actions` distinct force actions. The number of incidents generally remained steady over time, with an average of `r force_literal_values$median_force_per_month` per month.
+
+“Electronic control devices,” often referred to as “Tasers,” were the most common type of non-deadly force used, accounting for nearly one-fifth of the total. “Physical control holds” made up `r force_literal_values$control_hold_perc` percent; pepper-spray, `r force_literal_values$pepper_perc` percent; and dog bites, `r force_literal_values$k9_perc` percent. The rest was made up of various types of punches, kicks, and knee strikes, and use of other weapons, such as batons and pepper-ball launchers."
+
+### Page 128
+"Tulsa Police reported injuries to the civilians subjected to use of force in `r force_literal_values$perc_with_injury` percent of the incidents, and injuries to officers in `r force_literal_values$perc_with_officer_injury` percent. They did not distinguish severity of the injuries in the data provided, so these percentages reveal little."
+
+"Force incidents occurred across a broad range of types of police encounters or activities. The most common were investigations of domestic assaults or disturbances (`r force_literal_values$service_domestic` percent of incidents), “other disturbances” (`r force_literal_values$service_disturbance` percent), burglary investigations (`r force_literal_values$service_burglary` percent), traffic stops (`r force_literal_values$service_traffic` percent), warrant service (`r force_literal_values$service_warrant` percent), and pedestrian checks (`r force_literal_values$service_ped` percent). In `r force_literal_values$reason_resist` percent of all incidents Tulsa police gave “resisting” as the justification for the police use of physical force. In `r force_literal_values$reason_elude` percent, the justification was “eluding.” Neither term is clearly defined.  In `r force_literal_values$reason_assault` percent of use-of-force incidents, Tulsa police claimed an assault or battery on an officer as justification for police use of less lethal force.
+
+In `r force_literal_values$percent_arrested` percent of the incidents provided by the Tulsa Police Department, officers arrested the person. Though the dataset of the `r force_literal_values$total_num_force_incidents` incidents did not include information to directly evaluate these arrests,  Human Rights Watch was able to use street names and times of arrest to match `r force_literal_values$number_matched` of them with more detailed information from an arrest dataset. Using this information, we found that the most common arrest offenses in these use of force cases tended not to be violent charges.  In `r force_literal_values$arrest_disorderly` percent of the arrests, the most serious charge was some form of “disorderly conduct;” assault on an officer, `r force_literal_values$arrest_assault` percent; public intoxication accounted for `r force_literal_values$arrest_intox` percent;  weapons possession, `r force_literal_values$arrest_weapon` percent; other assault, about `r force_literal_values$arrest_other_assault` percent."
+
+### Page 129
+"According to the data Tulsa police provided to Human Rights Watch, the rate with which police use physical force against black people in Tulsa is `r force_literal_values$ratio_per_capita` times greater than the rate used against white people on a per capita basis. There were `r force_literal_values$annual_rate_per_1K_capita_black` documented incidents per 1,000 black residents per year during this time period as compared to `r force_literal_values$annual_rate_per_1K_capita_white` per 1,000 white people.  While making up about 17 percent of Tulsa’s population, black people are subject to almost `r force_literal_values$percent_of_force_black` percent of police violence."
+
+### Page 130
+```{r echo = FALSE,  warning=FALSE}
+kable(table_force_rates, caption = "Tulsa Police Department Use of Force Incidents 2012 – 2017") 
+```
+
+"Tulsa Police redacted addresses in the data, but they did give zip codes for `r force_literal_values$perc_with_zip` percent of incidents from 2016 and 2017, the last two years for which data was provided. Using census data to calculate rates of force used within each zip code, Human Rights Watch found that areas with higher percentages of non-white people correlated to higher rates of police violence."
+
+### Page 131
+```{r echo = FALSE,  warning=FALSE}
+plot <- ggplot(zip, aes(x = perc_non_white, y = rate_use_force)) +
+   geom_point(alpha = 0.9, shape = 20, size = 4) + 
+   theme_agile() +
+   theme(legend.position = "none") +
+   geom_smooth(method = 'lm') +
+   scale_x_continuous(label = percent) +
+   expand_limits(x = 0) +
+   labs(x = "Proportion of zip code population that is non-white",
+        y = "Use of force incidents per 1,000 people (2016-2017)",
+        title = "Non-firearm Use of Force and the Non-white Population",
+        subtitle = paste("Moderate to strong correlation (r = ",  force_literal_values$cor_force_rate_non_white_pop,
+                         ")", sep = ""),
+        caption = "Source: Human Rights Watch analysis of Tulsa Police Department data.")
+plot
+```
+
+"Racial disparities are reflected in the types of use of force. Police used pepper-spray on black people at `r force_literal_values$ratio_per_capita_pepper` times the rate they used it on white people on a per capita basis. They used tasers on black people `r force_literal_values$ratio_per_capita_taser` times as frequently, and they ordered police dogs to bite them `r force_literal_values$ratio_per_capita_k9` times as often."
+(footnote:
+The racial disparities persist to a lesser degree when looking at rates of use per arrest. Tasers were used `r force_literal_values$ratio_per_arrest_taser` times more often per arrest of black people than white people and pepper spray `r force_literal_values$ratio_per_arrest_pepper` times more often. K-9's are used slightly more (`r force_literal_values$ratio_per_arrest_k9`) often per arrest of white people than of black arrestees.)
+
+"Human Rights Watch analyzed how often force is used per arrest by calculating rates of force used per 1,000 arrests. While the disparity in force used per arrest is lower than force used per capita, black arrestees were subjected to force at a rate `r force_literal_values$percent_diff_rate_arrest` percent higher than white arrestees."
+
+### Page 134
+"Of `r force_literal_values$total_num_force_actions` separate acts of “non-deadly” force in `r force_literal_values$total_num_force_incidents` incidents reported by the Tulsa Police Department for the 2012-2017 period, authorities concluded that only two were “out of policy.” The data the department provided indicates that neither of the two resulted in disciplinary action."
+
+### Page 135
+"The force incident data provided to Human Rights Watch documents that between 2012 and 2017, there were `r force_literal_values$k9_number` police dog bite incidents, nearly one every six days, almost all of which were reported to have caused injury. These figures accounted for one quarter of all injuries to civilians reported by the department. Canine bites were used on black people at `r force_literal_values$ratio_per_capita_k9` the per capita rate they were used on white people."
+
+### Page 136
+```{r echo = FALSE}
+
+plot <- ggplot(trends_joined, aes(x = year, y = num)) +
+   geom_line() + geom_point() +
+   theme_agile() +
+   facet_wrap(cat ~ force_type_cleaned2, scales = "free") +
+   expand_limits(y = 0) +
+   scale_y_continuous(name = "",  limits = c(),
+                      breaks = pretty_breaks()) +
+   #theme(axis.text.y=element_blank()) +
+   theme(legend.title=element_blank()) +
+   theme(strip.text.y = element_text(size = 8)) +
+   #theme(axis.text.x = element_text(angle=45, vjust = .5, hjust = .5)) +
+   theme(legend.position = "bottom") +
+   labs(x = "",
+        title = "Increased Taser and K-9 Use", 
+        subtitle = "",
+        caption = "Source: Human Rights Watch analysis of Tulsa Police Department data.")
+plot
+
+```
+
+### Page 139
+"Tulsa Police disclosed some data about `r force_literal_values$taser_number` taser deployments between 2012 and 2017, about `r force_literal_values$taser_perc` percent of all physical force actions in the dataset and the most common type of force disclosed. Officers used tasers at an annual per capita rate of `r force_literal_values$rate_taser_black_per_capita` per 10,000 black people and `r force_literal_values$rate_taser_white_per_capita` per 10,000 white people, a disparity of about `r force_literal_values$ratio_per_capita_taser` times."
+
+# Chapter VIII. Tulsa Police and the Latino Immigrant Community
+
+### Page 160
+"Human Rights Watch received data on every person booked into the Tulsa County Jail in 2016 and 2017. Over those two years, at least `r jail_literal_values$total_ICE_detainees` people were transferred from jail custody into ICE custody. About `r jail_literal_values$perc_ICE_holds` percent of these non-citizens were not booked due to an arrest for a new charge, rather, they were already in ICE custody and were held in the local jail under an Intergovernmental Support Agreement with ICE.  The remaining `r jail_literal_values$perc_nonICE_holds` percent, or `r jail_literal_values$num_nonICE_hold` people, were arrested by a local police agency, including the Tulsa Police Department, and were then turned over to ICE after they served a sentence or otherwise resolved their criminal case, including dismissals or no filing of charges. The most prevalent arrest offenses for those `r jail_literal_values$num_nonICE_hold` were `r jail_literal_values$num_DUI`, for driving under the influence of alcohol; `r jail_literal_values$num_DL`, for driver’s license, registration, or license plate violations; `r jail_literal_values$num_intox`, for public intoxication; `r jail_literal_values$num_battery`, for domestic battery;  `r jail_literal_values$num_insura`, for no proof of insurance; `r jail_literal_values$num_firearm`, for gun possession; `r jail_literal_values$num_moving`, for moving violations; and `r jail_literal_values$num_drug_sale`, for drug sales.  In total, `r jail_literal_values$public_order_perc` percent of the people ICE issued detainers for were arrested for a public order charge while only `r jail_literal_values$violent_perc` percent were arrested for violent or potentially violent offenses, including domestic battery, the most common violent offense."
+
+
+ 
+

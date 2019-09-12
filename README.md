@@ -1,0 +1,83 @@
+# Human Rights Watch Analysis of Policing in Tulsa, OK
+## Quantitative analyses from the report “‘Get on the Ground!’: Policing, Poverty and Racial Inequality in Tulsa, Oklahoma”
+
+*Code by Brian Root; report authored by John Raphling*
+
+Tulsa, Oklahoma provides a case study of abusive, overly aggressive policing in the United States. This repository includes the raw data and analytical code that was used in Human Rights Watch's investigation. The analysis used policing data, provided to Human Rights Watch by the Tulsa Police Department in response to public records requests, jail data from the Tulsa County Sheriff's Office, and demographic and socio-economic data from the US Census Bureau. Human Rights Watch encourages transparency and reproducibility in quantitative policy analysis and hopes to encourage additional analysis.
+
+All of the analyses are written in R.
+
+## Data 
+Human Rights Watch requested detailed data from the Tulsa Police Department, the Tulsa County Sheriff, and the City of Tulsa about a broad variety of police functions, including detentions and stops, arrests, citations, checkpoints, uses of force, gang enforcement, officer demographics, department budget, lawsuits, complaints, and jail bookings. Tulsa authorities responded to these requests in varying degrees, with different datasets. Each dataset provided some of the information requested, but not all. The Tulsa County Sheriff provided booking data of everyone booked into the Tulsa County jail over a two-year period.
+
+Human Rights Watch seeks to release this data in an ethical and responsible manner that promotes privacy and the human rights of those who are included in the released data. At the same time, we also encourage further analyses, especially those with the goal of promoting accountability and human rights. Therefore, Human Rights Watch is not releasing the raw data but instead releasing our processed data with several variables, including locations/addresses and names, removed. All of the descriptive analyses of the location data is done aggregated to the census tract level. In the dataset of deadly force, we have not removed the names of those killed by police. We recognize that it may still be possible to identify individuals by linking the data we do release with other sources of data but believe the probability of harm resulting from the released data is low.
+
+Parties interested accessing the raw data released to Human Rights Watch can write to rootb@hrw.org with a request.
+
+The processed data is in the matching/output folder. 
+
+All of the US Census Bureau data is from the 2017 five-year American Community Survey and is downloaded directly from the census API using the [TidyCensus](https://cran.r-project.org/web/packages/tidycensus/tidycensus.pdf) package. 
+
+## Describing the analysis
+The analysis includes seven main tasks. "Import" imports all of the policing data and creates .rds files. The "Processing" task provides data cleaning, re-coding and other data normalization. "Matching" uses time and location variables to attempt to match events from separate Tulsa Police Department datasets. "Census_data" downloads, codes and generates the relevant US Census Bureau data. "Arrests_descriptives" produces the descriptive statistics on arrests in Tulsa. "Other_descriptives" includes four R scripts that generate descriptive statistics on traffic stops, citations, use of force and jail bookings. 
+
+## Reproducing the analysis
+All folders and files in this repository should be in a single project folder. The R scripts use the [Here package](https://cran.r-project.org/web/packages/here/index.html) to locate files relative to the project root. As long as all of the task folders are stored in a single directory, the scripts should locate all necessary files.
+
+The tasks are all self-contained in each task folder. Each task folder contains an SRC folder with the R scripts, an input folder containing raw data, a frozen folder containing input or recoding files that have been manually modified, and output folders. The tasks also contain a Makefile to run the script. The scripts can be run with the Makefile or by simply running the R scripts in order.
+
+The tasks are run in the following order:
+import -> processing -> matching -> census_data -> arrests_descriptives -> other_descriptives (tulsa_citations.r, tulsa_stops.r, tulsa_use_force_descriptives.R, tulsa_jail.r)
+
+As discussed in the data section, Human Rights Watch is only providing processed data with locations and names removed. The processed data that we are making available is in the matching/output folder. This means that the import, processing and matching tasks cannot be run without contacting Human Rights Watch for the raw data. The census_data task can be run without any input data and all of the descriptives tasks can be run using the data in matching/output. 
+
+In order for the census_data script to run, you must have a census api key saved in your .Renviron. 
+
+If plots are causing errors, it is likely because the theme_agile function includes Human Rights Watch's font which must be loaded on the local machine. Change the font family within the functions_shared.R script in order to run the scripts.
+
+The only component of the analysis that is not included in this code is the geocoding of addresses to latitude and longitude coordinates and their census tracts. Human Rights Watch geocoded the addresses in ArcGIS software. Within the "processing.R" script, the geocoded addresses are read-in from the frozen folder.
+
+The final other_descriptives/src folder contains a tulsa_analysis_markdown.RMD file that will output an HTML document that includes nearly every statistic that was included in the final Human Rights Watch report. The HTML document indicates the report page each statistic is on.
+
+## Limitations
+- The methodology section of “‘Get on the Ground!’: Policing, Poverty and Racial Inequality in Tulsa, Oklahoma” describes the methodological decisions Human Rights Watch made and the reasoning behind each decision. Central to the analysis is the treatment of race data in order to join Tulsa Police Department data to US Census Bureau data. The methodology section, reproduced below, acknowledges several limitations in the way race is handled in both police and census data. Different methodological choices surrounding race will produce different numbers and rates.
+
+- Human Rights Watch cannot evaluate the accuracy of the data that the Tulsa Police Department provided to us. 
+
+## Methodology
+
+### Geocoding
+Several of the separate datasets included an open-text address column but no standardized addresses, locations, or longitude/latitude coordinates to describe the location of a stop, arrest, or citation. In total, the different datasets included over 200,000 unique addresses (after accounting for typographical errors and different ways of writing the same address).
+Human Rights Watch was able to geocode 88 percent of the traffic and pedestrian stops. Of the addresses that were impossible to geocode, most were stops along highways. Traffic and pedestrian stops, arrests, and citations geocoded to locations beyond the city limits were filtered out.
+
+All geocoded data was joined to census data on population demographics and economics. The census data used was the American Community Survey five-year estimates (2013-2017) (United States Census Bureau, “American Community Survey, 2017,” US Department of Commerce, https://www.census.gov/acs/www/data/data-tables-and-tools/data-profiles/2017/ (accessed July 24, 2019). The same five-year ACS estimates were used for each year of the analysis.).
+
+Human Rights Watch received conflicting descriptions of the exact eastern boundary of “North Tulsa.” For purposes of analysis of data received from the Tulsa Police Department, Human Rights Watch uses all areas of the city of Tulsa that are north of Highway 244, as they coincide with the eastern boundary of the Tulsa Police Department’s Gilcrease Division.
+
+### Matching
+The datasets provided by the Tulsa Police Department did not have identification variables that we could use to link traffic stops to arrests or citations or to identify which events in each of the datasets referred to the same police encounter. Additionally, the police department did not include data on the race of drivers or pedestrians that were stopped; the department included race data only in the arrest and citation datasets.
+
+Human Rights Watch used the addresses provided, as well as timestamps, to link traffic and pedestrian stops from 2016 and 2017 to any arrests or citations that were within a quarter mile and one hour of a stop. The vast majority of stop to arrest/citation matches were much closer in proximity than the full quarter mile or one-hour windows. However, Human Rights Watch opted to use conservative time and geography windows to include any potential matches. This window would make any stop and arrest that occurred around street corners from each to be positively matched.
+
+In total, Human Rights Watch matched nearly 15,000 police stops to a citation and/or an arrest. Of the matched stops, 9,910 were matched to a citation, 4,645 were matched to an arrest and 314 were matched to both an arrest and citation. We have not tried to use these matches to assess the proportion of police stops that end in an arrest or citation, however, because there appear to be serious issues with missing data. We know, for example, that the traffic stop data does not include every traffic stop. Large proportions of arrests for DUI or traffic-related offenses, as well as citations for driving, moreover, had no corresponding record within the traffic stop data within the distance and timeframe windows. While the ratio of stops to arrests/citations in the nearly 15,000 matches we were able to make cannot be interpreted as representing the true proportion of stops that result in an arrest or citation, the matches do provide evidence of the types of arrests and citations that result from a traffic or pedestrian stop, as well as the demographics of those stopped and arrested or cited for certain behavior.
+
+### Recoding
+To facilitate meaningful analysis, Human Rights Watch organized and recoded the data we received, grouping offenses into offense type categories. The offense type categories were then ranked in the following order of seriousness: 1. Violent or potentially violent offenses; 2. Weapons offenses; 3. Theft or property offenses; 4. Non-violent sex offenses; 5. Public order offenses; 6. Drug offenses; 7. Other offenses; 8. Warrant offenses. For each individual arrest, the offense with the highest ranking was selected as the most serious offense charged. If there were multiple offenses charged within the same rank, the first offense in the dataset was used as the most serious offense for the arrest.
+
+Human Rights Watch also grouped offenses whether they were more likely call/victim-initiated, such as assault, or whether they are offenses that are discovered through “pro-active” police work—police stopping people, searching them, and finding contraband or finding that there is an outstanding warrant for their arrest. All processing and descriptive analysis code, as well as raw data, is included on a linked Github page.
+
+### Race and Data
+Addressing race posed a methodological challenge in our research, largely because the Tulsa Police Department and the US census categorize race differently. To make even simple race-oriented comparisons and produce rates per population, Human Rights Watch thus needed to recode both police and census data into similar race categories.
+
+The greatest challenge is that the Census Bureau does not consider “Hispanic or Latino” a race but rather an ethnicity. About 15.4 percent of Tulsa city has an ethnicity of “Hispanic or Latino” and the majority (58 percent) of that population identified as white when asked to identify their race in the census. Another 1.4 percent said their race was black, 2.4 percent said it was Native American, 5.3 percent said it was two or more races, and 32 percent said “other.”
+
+White-Hispanic/Latinos, black-Hispanic/Latinos, and “other”-Hispanic/Latinos, moreover, are coded differently in different Tulsa police datasets. In the citations data, Latino was included as a race and accounted for 2.1 percent of citations, a disparity from the 15.4 percent of the city population identifying as having Hispanic/Latino ethnicity large enough to make it unlikely to be an accurate reflection of citations rates for Latinos. While Hispanic/Latino was not included as a race in the arrest dataset, there was a separate ethnicity column indicating whether the arrestee was Hispanic/Latino and almost all arrested individuals with Hispanic/Latino ethnicity, 4.8 percent of total arrestees, were coded as “white” in the race column. Unfortunately, a majority of the data (53 percent) had no information in the ethnicity column whatsoever and Human Rights Watch was unable to impute the missing data because the limited information available to us.
+
+A common method for interpreting race in census data is to treat all people of “Hispanic or Latino” ethnicity as racially Hispanic/Latino, even those who say their race is white, and consider only non-Hispanic white or black people in determining the proportion of the population that is white or black. Applying this method to the analysis would skew any arrest or stop rates considerably because police do not accurately track data on Hispanic/Latino ethnicity and because we know that police identify most of the Hispanic/Latino individuals they arrest as white: to count all Hispanic/Latinos as racially as well as ethnically Hispanic/Latino would lead to a systematic undercounting of the white population. In computations of arrest rates, moreover, the method would end up treating most Hispanic/Latinos as white in the numerator (because police arrest data classifies most of them as white) and as Hispanic/Latino in the denominator (because the city/tract census data classifies them as Hispanic/Latino), introducing a significant distortion. Because it is impossible to determine Hispanic/Latino ethnicity in the arrest or other police data, we did not treat Hispanic/Latino ethnicity as a race in either the police datasets or the census data.
+
+To further complicate matters, the census data has a “two or more races” category, but the police data does not. In the census data, 7.9 percent of the Tulsa population identifies as belonging to two or more races. Of this group, 50.6 percent identify as white and Native American, 15 percent as black and Native American, 15 percent as black and white, 5 percent as white and Asian and the remainder as some other combination of race.
+
+In order to obtain census race categories that are comparable to the police race categories, Human Rights Watch needed to recode the “two or more races” populations and recompute the proportions of the population that belong to different races. Human Rights Watch opted to re-code the two or more race respondents as single race: black-white respondents were re-coded as black, black-Native American as black, white-Native American as Native American and white-Asian as Asian. This coding makes the assumption that multi-racial people are more likely to be coded as a minority in the police database and it also results in the most conservative estimate of black to white arrest disparities because it increases the black population but not the white population in the denominator of any calculations of arrest rates.
+
+In our analyses of race and policing throughout this report, the numbers we present are based on application of this methodology and thus differ slightly at all levels (whether citywide, zip code, or census tract) from the proportions typically reported using census data. There are two main ramifications of these data limitations and the methodology used to address these complexities and create a common baseline across the datasets. First, it is impossible to use Tulsa Police Department data to examine policing of Hispanic/Latino communities. Additionally, the absolute numbers of arrests and citations of white Tulsans include people who are Hispanic/Latino. White arrest rates are computed with Hispanic/Latinos in both the numerator (arrests) and denominator (population). This may overinflate white arrest rates. Finally, reported arrest rates may differ from the true rates because all multi-racial people in both the arrest and census data have been coded within single race categories.
+
